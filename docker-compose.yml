@@ -1,0 +1,67 @@
+version: "3"
+
+networks:
+  private_network:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.2.0.0/24
+
+services:
+  wireguard:
+    depends_on: [adguard]
+    image: linuxserver/wireguard
+    container_name: wireguard
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Europe/Kiev # Change to your timezone
+      - SERVERPORT=51820
+      #- SERVERURL=my.ddns.net #optional - For use with DDNS (Uncomment to use)
+      - PEERS=1 # How many peers to generate for you (clients)
+      - PEERDNS=10.2.0.100 # Set it to point to adguard
+      - INTERNAL_SUBNET=10.6.0.0
+      
+    volumes:
+      - ./wireguard:/config
+      - /lib/modules:/lib/modules
+    ports:
+      - "51820:51820/udp"
+    dns:
+      - 10.2.0.100 # Points to adguard
+    sysctls:
+      - net.ipv4.conf.all.src_valid_mark=1
+
+    restart: unless-stopped
+    networks:
+      private_network:
+        ipv4_address: 10.2.0.3
+
+  alfis:
+    image: "cofob/alfis:latest"
+    container_name: alfis
+    restart: unless-stopped
+    hostname: "alfis"
+    networks:
+      private_network:
+        ipv4_address: 10.2.0.120
+
+  adguardhome:
+     image: adguard/adguardhome
+     container_name: adguardhome
+     networks:
+      private_network:
+        ipv4_address: 10.2.0.130
+     ports:
+       - 53:53/tcp
+       - 53:53/udp
+       - 784:784/udp
+       - 853:853/tcp
+       - 3000:3000/tcp
+       - 83:80/tcp
+     volumes:
+       - ./adguard/work:/opt/adguardhome/work
+       - ./adguard/conf:/opt/adguardhome/conf
